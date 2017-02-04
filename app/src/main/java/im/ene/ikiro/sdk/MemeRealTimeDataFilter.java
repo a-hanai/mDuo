@@ -8,11 +8,12 @@ import com.jins_jp.meme.MemeRealtimeData;
  * Created by eneim on 2/5/17.
  */
 
-public class MemeRealTimeDataFilter {
+class MemeRealTimeDataFilter {
 
-  private static final int IDLE_TIME = 1000; // 1000 milliseconds
   private static final float lowerFactor = 0.70f;
   private static final float higherFactor = 1.30f;
+
+  private final int IDLE_TIME; // 1000 milliseconds
 
   private final Source cmdSource;
   private Command lastCmd;
@@ -21,22 +22,28 @@ public class MemeRealTimeDataFilter {
   // stable state, may need to re-calibrate if user move
   private final GyroData calibGyroData;
   // stable acceleration, may need to re-calibrate if user move
-  private final AccelData calibAccelData;
+  // private final AccelData calibAccelData;
 
-  public MemeRealTimeDataFilter(@NonNull Source cmdSource, @NonNull GyroData calibGyroData,
-      @NonNull AccelData calibAccelData /* temporary unused */) {
+  MemeRealTimeDataFilter(@NonNull Source cmdSource, @NonNull GyroData calibGyroData) {
     this.cmdSource = cmdSource;
+    if (cmdSource == Source.HEAD) {
+      IDLE_TIME = 1000;
+    } else {
+      IDLE_TIME = 100;
+    }
+
     this.calibGyroData = calibGyroData;
-    this.calibAccelData = calibAccelData;
+    // this.calibAccelData = calibAccelData;
   }
 
-  @NonNull public final Command getLastCmd() {
+  @NonNull final Command getLastCmd() {
     return lastCmd;
   }
 
-  public final Command update(MemeRealtimeData data) {
+  final Command update(MemeRealtimeData data) {
     if (isWaiting()) {
       lastCmd = Command.of(this.cmdSource, Action.IDLE);
+      return lastCmd;
     } else {
       switch (cmdSource) {
         case EYE:
@@ -89,10 +96,9 @@ public class MemeRealTimeDataFilter {
             return setCommand(Command.of(cmdSource, Action.IDLE));
           }
         default:
-          break;
+          return lastCmd;
       }
     }
-    return lastCmd;
   }
 
   // private implementations
