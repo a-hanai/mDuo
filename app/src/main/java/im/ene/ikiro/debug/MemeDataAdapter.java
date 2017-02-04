@@ -26,7 +26,7 @@ public class MemeDataAdapter extends RecyclerView.Adapter<MemeDataViewHolder> {
   }
 
   @Override public void onBindViewHolder(MemeDataViewHolder holder, int position) {
-    holder.bind(this, entries.get(position).getEndData());
+    holder.bind(this, entries.get(position));
   }
 
   @Override public int getItemCount() {

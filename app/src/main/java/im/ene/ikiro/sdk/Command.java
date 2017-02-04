@@ -15,9 +15,11 @@ public class Command {
     this.action = action;
   }
 
-  public static Command IDLE = new Command(Source.HEAD, Action.IDLE);
-
   public static Command of(Source source, Action action) {
     return new Command(source, action);
+  }
+
+  @Override public String toString() {
+    return "Command{" + "source=" + source + ", action=" + action + '}';
   }
 }

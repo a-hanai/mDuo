@@ -8,31 +8,34 @@ import com.jins_jp.meme.MemeRealtimeData;
 
 public class DataWindow {
 
-  private final MemeRealtimeData startData;
+  private final GyroData calibGyroData;
 
-  public DataWindow(MemeRealtimeData startData) {
-    this.startData = startData;
+  private final MemeRealTimeDataFilter headFilter;
+  private final MemeRealTimeDataFilter eyeFilter;
+
+  public DataWindow(GyroData calibGyroData) {
+    this.calibGyroData = calibGyroData;
+    this.headFilter = new MemeRealTimeDataFilter(Source.HEAD, calibGyroData, null);
+    this.eyeFilter = new MemeRealTimeDataFilter(Source.EYE, calibGyroData, null);
   }
 
   private MemeRealtimeData endData;
 
   public void setEndData(MemeRealtimeData endData) {
     this.endData = endData;
+    this.eyeFilter.update(endData);
+    this.headFilter.update(endData);
   }
 
   public MemeRealtimeData getEndData() {
     return endData;
   }
 
-  public Action getAccAction() {
-    return Action.IDLE;
+  public Command getEyeCommand() {
+    return eyeFilter.getLastCmd();
   }
 
-  public Action getGyroAction() {
-    return Action.IDLE;
-  }
-
-  public Action getEyeAction() {
-    return Action.IDLE;
+  public Command getHeadCommand() {
+    return headFilter.getLastCmd();
   }
 }

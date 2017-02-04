@@ -1,6 +1,7 @@
 package im.ene.ikiro.sdk;
 
 import android.support.annotation.NonNull;
+import android.util.Log;
 import com.jins_jp.meme.MemeRealtimeData;
 
 /**
@@ -9,17 +10,24 @@ import com.jins_jp.meme.MemeRealtimeData;
 
 public class MemeRealTimeDataFilter {
 
-  private static final int IDLE_TIME = 750; // 750 milliseconds
+  private static final int IDLE_TIME = 1000; // 1000 milliseconds
+  private static final float lowerFactor = 0.70f;
+  private static final float higherFactor = 1.30f;
 
   private final Source cmdSource;
-  private Command lastCmd = Command.IDLE; // idle at first
+  private Command lastCmd;
   private long lastCmdTimeStamp;
 
-  private GyroData calibGyroData; // stable state, may need to re-calibrate if user move
-  private AccelData calibAccelData; // stable acceleration, may need to re-calibrate if user move
+  // stable state, may need to re-calibrate if user move
+  private final GyroData calibGyroData;
+  // stable acceleration, may need to re-calibrate if user move
+  private final AccelData calibAccelData;
 
-  public MemeRealTimeDataFilter(Source cmdSource) {
+  public MemeRealTimeDataFilter(@NonNull Source cmdSource, @NonNull GyroData calibGyroData,
+      @NonNull AccelData calibAccelData /* temporary unused */) {
     this.cmdSource = cmdSource;
+    this.calibGyroData = calibGyroData;
+    this.calibAccelData = calibAccelData;
   }
 
   @NonNull public final Command getLastCmd() {
@@ -28,11 +36,11 @@ public class MemeRealTimeDataFilter {
 
   public final Command update(MemeRealtimeData data) {
     if (isWaiting()) {
-      lastCmd = Command.IDLE;
+      lastCmd = Command.of(this.cmdSource, Action.IDLE);
     } else {
       switch (cmdSource) {
         case EYE:
-          if (data.getBlinkStrength() > 30) {
+          if (data.getBlinkStrength() > 30 || data.getBlinkSpeed() > 50) {
             return setCommand(Command.of(cmdSource, Action.EYE_BLINK));
           } else if (data.getEyeMoveLeft() > 0) {
             return setCommand(Command.of(cmdSource, Action.EYE_TURN_LEFT));
@@ -42,10 +50,44 @@ public class MemeRealTimeDataFilter {
             return setCommand(Command.of(cmdSource, Action.EYE_TURN_UP));
           } else if (data.getEyeMoveDown() > 0) {
             return setCommand(Command.of(cmdSource, Action.EYE_TURN_DOWN));
+          } else {
+            return setCommand(Command.of(cmdSource, Action.IDLE));
           }
-          break;
         case HEAD:
-          break;
+          float pitchDiff = Math.abs(data.getPitch() - calibGyroData.getPitch());
+          float rollDiff = Math.abs(data.getRoll() - calibGyroData.getRoll());
+          float yawDiff = Math.abs(data.getYaw() - calibGyroData.getYaw());
+          Log.i("GYRO:DIFF", "update: " + (yawDiff + rollDiff + pitchDiff));
+          if (yawDiff + rollDiff + pitchDiff > 10 /* magic number, TODO: calibrate this */) {
+            float maxDiff = Math.max(yawDiff, Math.max(pitchDiff, rollDiff));
+            if (yawDiff == maxDiff) {
+              if (data.getYaw() < calibGyroData.getYaw() * lowerFactor) {
+                return setCommand(Command.of(cmdSource, Action.YAW_LEFT));
+              } else if (data.getYaw() > calibGyroData.getYaw() * higherFactor) {
+                return setCommand(Command.of(cmdSource, Action.YAW_RIGHT));
+              } else {
+                return setCommand(Command.of(cmdSource, Action.IDLE));
+              }
+            } else if (pitchDiff == maxDiff) {
+              if (data.getPitch() > calibGyroData.getPitch() * higherFactor) {
+                return setCommand(Command.of(cmdSource, Action.PITCH_FORWARD));
+              } else if (data.getPitch() < calibGyroData.getPitch() * lowerFactor) {
+                return setCommand(Command.of(cmdSource, Action.PITCH_BACKWARD));
+              } else {
+                return setCommand(Command.of(cmdSource, Action.IDLE));
+              }
+            } else {
+              if (data.getRoll() > calibGyroData.getRoll() * higherFactor) {
+                return setCommand(Command.of(cmdSource, Action.ROLL_LEFT));
+              } else if (data.getRoll() < calibGyroData.getRoll() * lowerFactor) {
+                return setCommand(Command.of(cmdSource, Action.ROLL_RIGHT));
+              } else {
+                return setCommand(Command.of(cmdSource, Action.IDLE));
+              }
+            }
+          } else {
+            return setCommand(Command.of(cmdSource, Action.IDLE));
+          }
         default:
           break;
       }

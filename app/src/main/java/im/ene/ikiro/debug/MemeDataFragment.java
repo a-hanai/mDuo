@@ -1,6 +1,7 @@
 package im.ene.ikiro.debug;
 
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
@@ -16,10 +17,12 @@ import com.jins_jp.meme.MemeRealtimeData;
 import com.jins_jp.meme.MemeRealtimeListener;
 import im.ene.ikiro.R;
 import im.ene.ikiro.sdk.DataWindow;
-import io.reactivex.Flowable;
+import im.ene.ikiro.sdk.GyroData;
+import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -89,55 +92,86 @@ public class MemeDataFragment extends Fragment implements MemeRealtimeListener {
     //  }
     //});
 
-    //rxDisposable = Observable.interval(1000, TimeUnit.MILLISECONDS)
-    //    .subscribeOn(AndroidSchedulers.mainThread())
-    //    .subscribe(new Consumer<Long>() {
-    //      @Override public void accept(Long aLong) throws Exception {
-    //        if (dataWindow == null) {
-    //          dataWindow = new DataWindow(null);
-    //        }
-    //
-    //        if (latestEntry != null) {
-    //          dataWindow.setEndData(latestEntry);
-    //          adapter.addEntry(dataWindow);
-    //          recyclerView.smoothScrollToPosition(adapter.getItemCount() - 1);
-    //
-    //          // renew
-    //          dataWindow = new DataWindow(latestEntry);
-    //        }
-    //      }
-    //    });
-
-    //relay.subscribe(new Consumer<MemeRealtimeData>() {
-    //  @Override public void accept(MemeRealtimeData data) throws Exception {
-    //    hasBlinkWindow = new DataWindow(null);
-    //    hasBlinkWindow.setEndData(data);
-    //    adapter.addEntry(hasBlinkWindow);
-    //    recyclerView.smoothScrollToPosition(adapter.getItemCount() - 1);
-    //  }
-    //});
-
-    Flowable.interval(500, TimeUnit.MILLISECONDS)
+    rxDisposable = Observable.interval(500, TimeUnit.MILLISECONDS)
         .subscribeOn(AndroidSchedulers.mainThread())
         .subscribe(new Consumer<Long>() {
           @Override public void accept(Long aLong) throws Exception {
-            if (hasBlinkEntry != null) {
-              hasBlinkWindow = new DataWindow(null);
-              hasBlinkWindow.setEndData(hasBlinkEntry);
-              adapter.addEntry(hasBlinkWindow);
+            if (calibGyroData == null) {
+              return;
+            }
+
+            if (dataWindow == null) {
+              dataWindow = new DataWindow(calibGyroData);
+            }
+
+            if (hasNewEntry && latestEntry != null) {
+              dataWindow.setEndData(latestEntry);
+              adapter.addEntry(dataWindow);
               recyclerView.smoothScrollToPosition(adapter.getItemCount() - 1);
-              hasBlinkEntry = null;
+
+              hasNewEntry = false;
+              // renew
+              dataWindow = new DataWindow(calibGyroData);
             }
           }
         });
   }
 
+  boolean hasNewEntry;
+  GyroData calibGyroData;
+  private final GyroCalibrator calibrator = new GyroCalibrator();
+
   @Override public void memeRealtimeCallback(MemeRealtimeData data) {
+    // First 10 seconds will be used to calibrate the Gyro position.
+    if (calibrator.getStartTime() == null) {
+      calibrator.setStartTime(SystemClock.elapsedRealtime());
+    }
+
+    if (calibrator.getStartTime() + 10 * 1000 > SystemClock.elapsedRealtime()) {
+      synchronized (calibrator) {
+        calibrator.add(new GyroData(data.getPitch(), data.getRoll(), data.getYaw()));
+      }
+
+      return;
+    }
+
+    if (calibGyroData == null) {
+      calibGyroData = calibrator.getClibrated();
+    }
+
     latestEntry = data;
-    // relay.accept(latestEntry);
-    if (data.getBlinkSpeed() > 0 || data.getEyeMoveLeft() > 0 || data.getEyeMoveRight() > 0) {
-      // relay.accept(data);
-      hasBlinkEntry = data;
+    hasNewEntry = true;
+  }
+
+  private static class GyroCalibrator extends ArrayList<GyroData> {
+
+    private Long startTime;
+
+    float avrPitch = 0;
+    float avrRoll = 0;
+    float avrYaw = 0;
+
+    GyroCalibrator() {
+    }
+
+    public Long getStartTime() {
+      return startTime;
+    }
+
+    public void setStartTime(Long startTime) {
+      this.startTime = startTime;
+    }
+
+    @Override public boolean add(GyroData gyroData) {
+      avrPitch += gyroData.getPitch();
+      avrRoll += gyroData.getRoll();
+      avrYaw += gyroData.getYaw();
+      return super.add(gyroData);
+    }
+
+    GyroData getClibrated() {
+      int size = this.size();
+      return new GyroData(avrPitch / (float) size, avrRoll / (float) size, avrYaw / (float) size);
     }
   }
 }
