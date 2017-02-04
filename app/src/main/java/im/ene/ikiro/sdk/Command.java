@@ -22,4 +22,12 @@ public class Command {
   @Override public String toString() {
     return "Command{" + "source=" + source + ", action=" + action + '}';
   }
+
+  public Source getSource() {
+    return source;
+  }
+
+  public Action getAction() {
+    return action;
+  }
 }

@@ -6,6 +6,7 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,20 +17,21 @@ import com.jakewharton.rxrelay2.Relay;
 import com.jins_jp.meme.MemeRealtimeData;
 import com.jins_jp.meme.MemeRealtimeListener;
 import im.ene.ikiro.R;
+import im.ene.ikiro.sdk.Action;
+import im.ene.ikiro.sdk.Command;
 import im.ene.ikiro.sdk.DataWindow;
 import im.ene.ikiro.sdk.GyroData;
-import io.reactivex.Observable;
-import io.reactivex.android.schedulers.AndroidSchedulers;
+import im.ene.ikiro.sdk.MemeActionFilter;
 import io.reactivex.disposables.Disposable;
-import io.reactivex.functions.Consumer;
 import java.util.ArrayList;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by eneim on 2/4/17.
  */
 
-public class MemeDataFragment extends Fragment implements MemeRealtimeListener {
+public class MemeDataFragment extends Fragment
+    implements MemeRealtimeListener, MemeActionFilter.OnEyeActionListener,
+    MemeActionFilter.OnHeadActionListener {
 
   private static final String TAG = "MemeDataFragment";
 
@@ -92,33 +94,34 @@ public class MemeDataFragment extends Fragment implements MemeRealtimeListener {
     //  }
     //});
 
-    rxDisposable = Observable.interval(500, TimeUnit.MILLISECONDS)
-        .subscribeOn(AndroidSchedulers.mainThread())
-        .subscribe(new Consumer<Long>() {
-          @Override public void accept(Long aLong) throws Exception {
-            if (calibGyroData == null) {
-              return;
-            }
-
-            if (dataWindow == null) {
-              dataWindow = new DataWindow(calibGyroData);
-            }
-
-            if (hasNewEntry && latestEntry != null) {
-              dataWindow.setEndData(latestEntry);
-              adapter.addEntry(dataWindow);
-              recyclerView.smoothScrollToPosition(adapter.getItemCount() - 1);
-
-              hasNewEntry = false;
-              // renew
-              dataWindow = new DataWindow(calibGyroData);
-            }
-          }
-        });
+    //rxDisposable = Observable.interval(500, TimeUnit.MILLISECONDS)
+    //    .subscribeOn(AndroidSchedulers.mainThread())
+    //    .subscribe(new Consumer<Long>() {
+    //      @Override public void accept(Long aLong) throws Exception {
+    //        if (calibGyroData == null) {
+    //          return;
+    //        }
+    //
+    //        if (dataWindow == null) {
+    //          dataWindow = new DataWindow(calibGyroData);
+    //        }
+    //
+    //        if (hasNewEntry && latestEntry != null) {
+    //          dataWindow.update(latestEntry);
+    //          adapter.addEntry(dataWindow);
+    //          recyclerView.smoothScrollToPosition(adapter.getItemCount() - 1);
+    //
+    //          hasNewEntry = false;
+    //          // renew
+    //          dataWindow = new DataWindow(calibGyroData);
+    //        }
+    //      }
+    //    });
   }
 
   boolean hasNewEntry;
   GyroData calibGyroData;
+  MemeActionFilter actionFilter;
   private final GyroCalibrator calibrator = new GyroCalibrator();
 
   @Override public void memeRealtimeCallback(MemeRealtimeData data) {
@@ -136,11 +139,35 @@ public class MemeDataFragment extends Fragment implements MemeRealtimeListener {
     }
 
     if (calibGyroData == null) {
-      calibGyroData = calibrator.getClibrated();
+      calibGyroData = calibrator.getCalibrated();
     }
+
+    if (actionFilter == null) {
+      actionFilter = new MemeActionFilter(calibGyroData);
+      actionFilter.addOnEyeActionListener(this);
+      actionFilter.addOnHeadActionListener(this);
+    }
+
+    actionFilter.onNewData(data);
 
     latestEntry = data;
     hasNewEntry = true;
+  }
+
+  @Override public void onEyeAction(Command action) {
+    if (action.getAction() != Action.IDLE) {
+      Log.d(TAG, "onEyeAction() called with: action = [" + action + "]");
+      adapter.addEntry(action);
+      recyclerView.smoothScrollToPosition(adapter.getItemCount() - 1);
+    }
+  }
+
+  @Override public void onHeadAction(Command action) {
+    if (action.getAction() != Action.IDLE) {
+      Log.d(TAG, "onHeadAction() called with: action = [" + action + "]");
+      adapter.addEntry(action);
+      recyclerView.smoothScrollToPosition(adapter.getItemCount() - 1);
+    }
   }
 
   private static class GyroCalibrator extends ArrayList<GyroData> {
@@ -169,7 +196,7 @@ public class MemeDataFragment extends Fragment implements MemeRealtimeListener {
       return super.add(gyroData);
     }
 
-    GyroData getClibrated() {
+    GyroData getCalibrated() {
       int size = this.size();
       return new GyroData(avrPitch / (float) size, avrRoll / (float) size, avrYaw / (float) size);
     }

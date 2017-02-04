@@ -22,6 +22,7 @@
         android:orientation="vertical"
         android:padding="8dp"
         android:showDividers="middle"
+        android:visibility="gone"
         >
 
     </LinearLayout>

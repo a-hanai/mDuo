@@ -15,16 +15,16 @@ public class DataWindow {
 
   public DataWindow(GyroData calibGyroData) {
     this.calibGyroData = calibGyroData;
-    this.headFilter = new MemeRealTimeDataFilter(Source.HEAD, calibGyroData, null);
-    this.eyeFilter = new MemeRealTimeDataFilter(Source.EYE, calibGyroData, null);
+    this.headFilter = new MemeRealTimeDataFilter(Source.HEAD, calibGyroData);
+    this.eyeFilter = new MemeRealTimeDataFilter(Source.EYE, calibGyroData);
   }
 
   private MemeRealtimeData endData;
 
-  public void setEndData(MemeRealtimeData endData) {
-    this.endData = endData;
-    this.eyeFilter.update(endData);
-    this.headFilter.update(endData);
+  public void update(MemeRealtimeData data) {
+    this.endData = data;
+    this.eyeFilter.update(data);
+    this.headFilter.update(data);
   }
 
   public MemeRealtimeData getEndData() {

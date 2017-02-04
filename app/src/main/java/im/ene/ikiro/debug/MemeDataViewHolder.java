@@ -8,7 +8,7 @@ import android.widget.TextView;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import im.ene.ikiro.R;
-import im.ene.ikiro.sdk.DataWindow;
+import im.ene.ikiro.sdk.Command;
 
 /**
  * Created by eneim on 2/4/17.
@@ -28,26 +28,11 @@ public class MemeDataViewHolder extends RecyclerView.ViewHolder {
     inflater = LayoutInflater.from(itemView.getContext());
   }
 
-  public void bind(MemeDataAdapter adapter, DataWindow data) {
+  public void bind(MemeDataAdapter adapter, Command command) {
     actions.removeAllViews();
 
     TextView action1 = (TextView) inflater.inflate(R.layout.debug_text_view, actions, false);
-    action1.setText("Eye:\t" + data.getEyeCommand() + "\nHead:\t" + data.getHeadCommand());
+    action1.setText(command.toString());
     actions.addView(action1);
-
-    ///
-
-    entries.removeAllViews();
-
-    TextView entry1 = (TextView) inflater.inflate(R.layout.debug_text_view, entries, false);
-    entry1.setText("getPowerLeft: " + data.getEndData().getPowerLeft());
-    entries.addView(entry1);
-
-    TextView entry2 = (TextView) inflater.inflate(R.layout.debug_text_view, entries, false);
-    entry2.setText("getEyeMoveLeft: "
-        + data.getEndData().getEyeMoveLeft()
-        + "\ngetEyeMoveRight: "
-        + data.getEndData().getEyeMoveRight());
-    entries.addView(entry2);
   }
 }
