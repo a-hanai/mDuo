@@ -1,24 +1,20 @@
 package im.ene.ikiro.debug;
 
-import android.annotation.TargetApi;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Toast;
 import com.jins_jp.meme.MemeConnectListener;
 import com.jins_jp.meme.MemeLib;
 import com.jins_jp.meme.MemeResponse;
 import com.jins_jp.meme.MemeResponseListener;
 import com.jins_jp.meme.MemeScanListener;
 import com.jins_jp.meme.MemeStatus;
+import im.ene.ikiro.BaseActivity;
 import im.ene.ikiro.R;
 
-public class DebugActivity extends AppCompatActivity
+public class DebugActivity extends BaseActivity
     implements MemeConnectListener, MemeResponseListener {
 
   private static final String TAG = "MEME";
@@ -30,7 +26,6 @@ public class DebugActivity extends AppCompatActivity
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
     memeLib = MemeLib.getInstance();
-
     fragment = (MemeDataFragment) getSupportFragmentManager().findFragmentById(R.id.content);
     if (fragment == null) {
       fragment = MemeDataFragment.newInstance();
@@ -43,28 +38,6 @@ public class DebugActivity extends AppCompatActivity
     //DatabaseReference myRef = database.getReference("message_meme");
     //
     //myRef.setValue("Hello, World!");
-  }
-
-  @TargetApi(23) private void maybeRequestLocationPermission() {
-    if (checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
-        != PackageManager.PERMISSION_GRANTED) {
-      requestPermissions(new String[] { android.Manifest.permission.ACCESS_COARSE_LOCATION }, 1);
-    }
-  }
-
-  @Override public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-      @NonNull int[] grantResults) {
-    if (requestCode == 1) {
-      if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        Log.d("PERMISSION", "Succeeded");
-        Toast.makeText(DebugActivity.this, "Succeed", Toast.LENGTH_SHORT).show();
-      } else {
-        Log.d("PERMISSION", "Failed");
-        Toast.makeText(DebugActivity.this, "Failed", Toast.LENGTH_SHORT).show();
-      }
-    } else {
-      super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-    }
   }
 
   @Override public boolean onCreateOptionsMenu(Menu menu) {

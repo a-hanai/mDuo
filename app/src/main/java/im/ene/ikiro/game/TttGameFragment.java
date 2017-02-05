@@ -21,11 +21,28 @@ import java.util.Arrays;
 
 public class TttGameFragment extends Fragment {
 
-  public static TttGameFragment newInstance() {
-    Bundle args = new Bundle();
+  private static final String GAME_USER_SIDE = "game:user:side";  // true or false
+
+  public static TttGameFragment newInstance(boolean side) {
     TttGameFragment fragment = new TttGameFragment();
+    Bundle args = new Bundle();
+    args.putBoolean(GAME_USER_SIDE, side);
     fragment.setArguments(args);
     return fragment;
+  }
+
+  Boolean userSide; // true or false
+  Boolean[] gameState = new Boolean[9];  // will be used to sync with Firebase
+
+  @Override public void onCreate(@Nullable Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    if (getArguments().containsKey(GAME_USER_SIDE)) {
+      this.userSide = getArguments().getBoolean(GAME_USER_SIDE);
+    }
+
+    if (this.userSide == null) {
+      getActivity().finish();
+    }
   }
 
   @Nullable @Override
@@ -36,6 +53,7 @@ public class TttGameFragment extends Fragment {
 
   Unbinder unbinder;
   @BindView(R.id.recycler_view) RecyclerView recyclerView;
+  BoardAdapter adapter;
 
   @Override public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
     super.onViewCreated(view, savedInstanceState);
@@ -45,7 +63,14 @@ public class TttGameFragment extends Fragment {
   @Override public void onActivityCreated(@Nullable Bundle savedInstanceState) {
     super.onActivityCreated(savedInstanceState);
     GridLayoutManager layoutManager = new GridLayoutManager(getContext(), 3);
-    BoardAdapter adapter = new BoardAdapter();
+    Arrays.fill(gameState, null);
+    adapter = new BoardAdapter(this.userSide, this.gameState);
+    adapter.setClickHandler(new BoardAdapter.ClickHandler() {
+      @Override void onChecked(View view, int pos) {
+        gameState[pos] = userSide;
+        // TODO Update Firebase
+      }
+    });
 
     recyclerView.setLayoutManager(layoutManager);
     recyclerView.setAdapter(adapter);
@@ -58,13 +83,26 @@ public class TttGameFragment extends Fragment {
     }
   }
 
+  public void moveCursor(int position) {
+    adapter.setCursorPosition(position);
+  }
+
   static class BoardAdapter extends RecyclerView.Adapter<CellViewHolder> {
 
-    private final Boolean[] states = new Boolean[9];
+    private final Boolean[] states;
     private int cursorPosition = RecyclerView.NO_POSITION;  // move over by meme action
 
-    public BoardAdapter() {
-      Arrays.fill(states, null);
+    final Boolean side;
+
+    ClickHandler clickHandler;
+
+    public void setClickHandler(ClickHandler clickHandler) {
+      this.clickHandler = clickHandler;
+    }
+
+    public BoardAdapter(Boolean side, Boolean[] states) {
+      this.side = side;
+      this.states = states;
     }
 
     @Override public CellViewHolder onCreateViewHolder(ViewGroup parent, final int viewType) {
@@ -73,8 +111,12 @@ public class TttGameFragment extends Fragment {
       final CellViewHolder viewHolder = new CellViewHolder(view);
       viewHolder.button.setOnClickListener(new View.OnClickListener() {
         @Override public void onClick(View v) {
-          check(viewHolder.getAdapterPosition(), Boolean.TRUE);
-          setCursorPosition(viewHolder.getAdapterPosition());
+          int pos = viewHolder.getAdapterPosition();
+          if (clickHandler != null && pos != RecyclerView.NO_POSITION) {
+            check(pos, BoardAdapter.this.side);
+            setCursorPosition(pos);
+            clickHandler.onChecked(v, pos);
+          }
         }
       });
       return viewHolder;
@@ -107,6 +149,11 @@ public class TttGameFragment extends Fragment {
         notifyItemChanged(pos);
       }
     }
+
+    static abstract class ClickHandler {
+
+      abstract void onChecked(View view, int pos);
+    }
   }
 
   static class CellViewHolder extends RecyclerView.ViewHolder {
@@ -135,5 +182,10 @@ public class TttGameFragment extends Fragment {
         overlay.setVisibility(View.GONE);
       }
     }
+  }
+
+  public interface Callback {
+
+    void onGameStateChanged(Boolean[] gameState, int changedPosition);
   }
 }
