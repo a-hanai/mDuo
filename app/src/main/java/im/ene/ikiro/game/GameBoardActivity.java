@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -215,6 +216,25 @@ public class GameBoardActivity extends BaseActivity
           gameFragment.updateStates(booleanList);
         }
       }
+
+      if (chatFragment != null) {
+        HashMap messages = (HashMap) dataSnapshot.child("chat_messages").getValue();
+        if (messages != null) {
+          List<ChatFragment.Message> messageList = new ArrayList<>();
+          Set<Map.Entry> entries = messages.entrySet();
+          for (Map.Entry entry : entries) {
+            HashMap value = (HashMap) entry.getValue();
+            ChatFragment.Message message =
+                new ChatFragment.Message(value.get("user_name").toString(),
+                    value.get("message").toString(),
+                    Long.parseLong(value.get("time_stamp").toString()));
+            messageList.add(message);
+          }
+
+          Log.i(TAG, "onDataChange: " + messages);
+          chatFragment.updateMessages(messageList);
+        }
+      }
     }
 
     @Override public void onCancelled(DatabaseError databaseError) {
@@ -301,6 +321,14 @@ public class GameBoardActivity extends BaseActivity
         }
 
         initGameUI();
+
+        chatFragment = (ChatFragment) getSupportFragmentManager().findFragmentById(R.id.game_chat);
+        if (chatFragment == null) {
+          chatFragment = ChatFragment.newInstance(myUserId, mySide);
+          getSupportFragmentManager().beginTransaction()
+              .replace(R.id.game_chat, chatFragment)
+              .commit();
+        }
       }
     };
 
@@ -343,15 +371,59 @@ public class GameBoardActivity extends BaseActivity
     }
   }
 
-  @Override public void onEyeAction(Command action) {
-    if (action.getAction() != Action.IDLE) {
+  @Override public void onEyeAction(final Command action) {
+    if (action != null && action.getAction() != Action.IDLE) {
       Log.d(TAG, "onEyeAction() called with: action = [" + action + "]");
+      if (chatFragment != null) {
+        runOnUiThread(new Runnable() {
+          @Override public void run() {
+            chatFragment.setAction(action);
+          }
+        });
+
+        switch (action.getAction()) {
+          case EYE_TURN_LEFT:
+            if (chatFragment != null) {
+              final String emojiCode =
+                  mySide ? String.valueOf(EMOJI_TRUE) : String.valueOf(EMOJI_FALSE);
+
+              Map<String, String> chatMessage = new HashMap<>();
+              chatMessage.put("user_name", myUserId);
+              chatMessage.put("message", emojiCode);
+              chatMessage.put("time_stamp", String.valueOf(System.nanoTime() / 1_000_000));
+              latestGameSnapShot.getRef()
+                  .child("chat_messages")
+                  .push()
+                  .setValue(chatMessage, new DatabaseReference.CompletionListener() {
+                    @Override public void onComplete(DatabaseError databaseError,
+                        DatabaseReference databaseReference) {
+                      Log.d(TAG, "onComplete() called with: databaseError = ["
+                          + databaseError
+                          + "], databaseReference = ["
+                          + databaseReference
+                          + "]");
+                    }
+                  });
+            }
+            break;
+          default:
+            break;
+        }
+      }
     }
   }
 
-  @Override public void onHeadAction(Command action) {
-    if (action.getAction() != Action.IDLE) {
+  @Override public void onHeadAction(final Command action) {
+    if (action != null && action.getAction() != Action.IDLE) {
       Log.d(TAG, "onHeadAction() called with: action = [" + action + "]");
+      if (chatFragment != null) {
+        runOnUiThread(new Runnable() {
+          @Override public void run() {
+            chatFragment.setAction(action);
+          }
+        });
+      }
+
       final AtomicInteger cursor = new AtomicInteger();
       cursor.set(gameFragment.getCursorPosition());
       switch (action.getAction()) {
@@ -415,4 +487,7 @@ public class GameBoardActivity extends BaseActivity
 
     }
   }
+
+  public static int EMOJI_TRUE = 0x1F605;
+  public static int EMOJI_FALSE = 0x1F601;
 }
