@@ -100,6 +100,10 @@ public class TttGameFragment extends Fragment {
 
   public void check(int position) {
     adapter.check(position, adapter.side);
+    if (callback != null) {
+      gameState[position] = userSide;
+      callback.onGameStateChanged(gameState, position);
+    }
   }
 
   public int getCursorPosition() {
@@ -108,10 +112,6 @@ public class TttGameFragment extends Fragment {
 
   public void moveCursor(int position) {
     adapter.setCursorPosition(position);
-  }
-
-  public void moveCursorClockWise() {
-    adapter.setCursorPosition(adapter.getItemCount());
   }
 
   public void updateStates(List<Boolean> gameState) {

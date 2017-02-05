@@ -138,20 +138,19 @@ public class ChatFragment extends Fragment {
     public Adapter(String myUserId, Boolean emojiFlag) {
       this.myUserId = myUserId;
       this.emojiFlag = emojiFlag;
-      this.messages =
-          new SortedList<Message>(Message.class, new SortedListAdapterCallback<Message>(this) {
-            @Override public int compare(Message o1, Message o2) {
-              return Long.compare(o2.timeStamp, o1.timeStamp);
-            }
+      this.messages = new SortedList<>(Message.class, new SortedListAdapterCallback<Message>(this) {
+        @Override public int compare(Message o1, Message o2) {
+          return Long.compare(o1.timeStamp, o2.timeStamp);
+        }
 
-            @Override public boolean areContentsTheSame(Message oldItem, Message newItem) {
-              return oldItem.timeStamp == newItem.timeStamp;
-            }
+        @Override public boolean areContentsTheSame(Message oldItem, Message newItem) {
+          return oldItem.timeStamp == newItem.timeStamp;
+        }
 
-            @Override public boolean areItemsTheSame(Message item1, Message item2) {
-              return item1.timeStamp == item2.timeStamp;
-            }
-          });
+        @Override public boolean areItemsTheSame(Message item1, Message item2) {
+          return item1.timeStamp == item2.timeStamp;
+        }
+      });
     }
 
     @Override public MessageViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
