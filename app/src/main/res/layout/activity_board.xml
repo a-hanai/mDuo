@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    >
+
+  <im.ene.ikiro.widget.SquareFrameLayout
+      android:id="@+id/game_board"
+      android:layout_width="wrap_content"
+      android:layout_height="match_parent"
+      android:layout_alignParentStart="true"
+      />
+
+  <FrameLayout
+      android:id="@+id/game_chat"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:layout_alignParentEnd="true"
+      android:layout_toEndOf="@id/game_board"
+      android:background="#ebe0ff"
+      />
+
+</RelativeLayout>
