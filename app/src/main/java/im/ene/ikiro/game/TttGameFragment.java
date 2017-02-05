@@ -1,5 +1,6 @@
 package im.ene.ikiro.game;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
@@ -14,6 +15,7 @@ import butterknife.ButterKnife;
 import butterknife.Unbinder;
 import im.ene.ikiro.R;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Created by eneim on 2/5/17.
@@ -68,7 +70,9 @@ public class TttGameFragment extends Fragment {
     adapter.setClickHandler(new BoardAdapter.ClickHandler() {
       @Override void onChecked(View view, int pos) {
         gameState[pos] = userSide;
-        // TODO Update Firebase
+        if (callback != null) {
+          callback.onGameStateChanged(gameState, pos);
+        }
       }
     });
 
@@ -83,8 +87,21 @@ public class TttGameFragment extends Fragment {
     }
   }
 
+  Callback callback;
+
+  @Override public void onAttach(Context context) {
+    super.onAttach(context);
+    if (context instanceof Callback) {
+      this.callback = (Callback) context;
+    }
+  }
+
   public void moveCursor(int position) {
     adapter.setCursorPosition(position);
+  }
+
+  public void updateStates(List<Boolean> gameState) {
+    adapter.updateBoard(gameState);
   }
 
   static class BoardAdapter extends RecyclerView.Adapter<CellViewHolder> {
@@ -148,6 +165,14 @@ public class TttGameFragment extends Fragment {
         states[pos] = willCheck;
         notifyItemChanged(pos);
       }
+    }
+
+    void updateBoard(List<Boolean> states) {
+      for (int i = 0; i < states.size(); i++) {
+        this.states[i] = states.get(i);
+      }
+
+      notifyDataSetChanged();
     }
 
     static abstract class ClickHandler {

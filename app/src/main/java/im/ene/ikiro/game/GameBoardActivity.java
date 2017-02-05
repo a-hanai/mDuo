@@ -32,7 +32,8 @@ import java.util.Map;
  */
 
 public class GameBoardActivity extends BaseActivity
-    implements MemeRealtimeListener, MemeResponseListener, MemeLogDialog.Callback {
+    implements MemeRealtimeListener, MemeResponseListener, MemeLogDialog.Callback,
+    TttGameFragment.Callback {
 
   private static final String TAG = "Duo:Game";
 
@@ -51,32 +52,46 @@ public class GameBoardActivity extends BaseActivity
     setContentView(R.layout.activity_board);
     maybeRequestLocationPermission();
 
+    // first state: all "blank"
+    for (int i = 0; i < 9; i++) {
+      boardState.add(cellBlank);
+    }
+
     //// Write a message to the database
     final FirebaseDatabase database = FirebaseDatabase.getInstance();
     fbDbRef = database.getReference("games");
     fbDbRef.addChildEventListener(this.childEventListener);
     fbDbRef.addListenerForSingleValueEvent(new ValueEventListener() {
-          @Override public void onDataChange(DataSnapshot dataSnapshot) {
-            // Not here by time
-            Iterable<DataSnapshot> snapshots = dataSnapshot.getChildren();
-            for (DataSnapshot snapshot : snapshots) {
-              if (Boolean.TRUE.equals(snapshot.getValue(Boolean.parseBoolean("active")))) {
-                latestGameSnapShot = dataSnapshot;
-                break;
-              }
-            }
+      @Override public void onDataChange(DataSnapshot dataSnapshot) {
+        // Not here by time
+        Iterable<DataSnapshot> snapshots = dataSnapshot.getChildren();
+        for (DataSnapshot snapshot : snapshots) {
+          if (Boolean.TRUE.equals(snapshot.getValue(Boolean.parseBoolean("active")))) {
+            latestGameSnapShot = snapshot;
+            break;
+          }
+        }
 
-            if (latestGameSnapShot != null) {
-              latestGameSnapShot.getRef().addValueEventListener(gameEventListener);
-              //noinspection unchecked
-              users = (ArrayList<String>) dataSnapshot.child("users").getValue();
-            }
+        if (latestGameSnapShot != null) {
+          latestGameSnapShot.getRef().addValueEventListener(gameEventListener);
+          //noinspection unchecked
+          users = (ArrayList<String>) latestGameSnapShot.child("users").getValue();
+          //noinspection unchecked
+          ArrayList state = (ArrayList) latestGameSnapShot.child("tic_tac_toe").getValue();
+          if (state != null) {
+            //noinspection unchecked
+            boardState = state;
           }
 
-          @Override public void onCancelled(DatabaseError databaseError) {
+          // Init Game UI
+          // initGameUI();
+        }
+      }
 
-          }
-        });
+      @Override public void onCancelled(DatabaseError databaseError) {
+
+      }
+    });
   }
 
   MemeLib memeLib = MemeLib.getInstance();
@@ -143,11 +158,27 @@ public class GameBoardActivity extends BaseActivity
 
   DataSnapshot latestGameSnapShot;
   ArrayList<String> users;
+  List<String> boardState = new ArrayList<>();
 
   // Event for latestGameSnapShot
   ValueEventListener gameEventListener = new ValueEventListener() {
     @Override public void onDataChange(DataSnapshot dataSnapshot) {
       Log.d(TAG, "onDataChange() called with: dataSnapshot = [" + dataSnapshot + "]");
+      if (gameFragment != null) {
+        //noinspection unchecked
+        ArrayList state = (ArrayList) dataSnapshot.child("tic_tac_toe").getValue();
+        if (state != null) {
+          //noinspection unchecked
+          boardState = state;
+
+          List<Boolean> booleanList = new ArrayList<>();
+          for (int i = 0; i < state.size(); i++) {
+            booleanList.add(state.get(i).equals("blank") ? null : mySide);
+          }
+
+          gameFragment.updateStates(booleanList);
+        }
+      }
     }
 
     @Override public void onCancelled(DatabaseError databaseError) {
@@ -223,7 +254,8 @@ public class GameBoardActivity extends BaseActivity
             users.add(myUserId);
           }
 
-          latestGameSnapShot.getRef().child("users")
+          latestGameSnapShot.getRef()
+              .child("users")
               .setValue(users, new DatabaseReference.CompletionListener() {
                 @Override public void onComplete(DatabaseError databaseError,
                     DatabaseReference databaseReference) {
@@ -231,19 +263,55 @@ public class GameBoardActivity extends BaseActivity
               });
         }
 
-        gameFragment =
-            (TttGameFragment) getSupportFragmentManager().findFragmentById(R.id.game_board);
-        if (gameFragment == null) {
-          gameFragment = TttGameFragment.newInstance(mySide);
-          getSupportFragmentManager().beginTransaction()
-              .replace(R.id.game_board, gameFragment)
-              .commit();
-        }
+        initGameUI();
       }
     };
 
     memeLib.setMemeConnectListener(connectedHandler);
     memeLib.connect(memeId);
+  }
+
+  private String cellBlank = "blank";
+
+  @Override public void onGameStateChanged(Boolean[] gameState, int changedPosition) {
+    String key = "tic_tac_toe";
+    if (latestGameSnapShot != null) {
+      //noinspection unchecked
+      // ArrayList state = (ArrayList) latestGameSnapShot.child(key).getValue();
+      boardState.set(changedPosition, myUserId);
+      //if (state == null) {
+      //  state = new ArrayList<>();
+      //  for (int i = 0; i < gameState.length; i++) {
+      //    //noinspection unchecked
+      //    state.add(cellBlank);
+      //  }
+      //}
+
+      //noinspection unchecked
+      //state.set(changedPosition, myUserId);
+      latestGameSnapShot.getRef()
+          .child(key)
+          .setValue(boardState, new DatabaseReference.CompletionListener() {
+            @Override public void onComplete(DatabaseError databaseError,
+                DatabaseReference databaseReference) {
+              Log.d(TAG, "onComplete() called with: databaseError = ["
+                  + databaseError
+                  + "], databaseReference = ["
+                  + databaseReference
+                  + "]");
+            }
+          });
+    }
+  }
+
+  void initGameUI() {
+    gameFragment = (TttGameFragment) getSupportFragmentManager().findFragmentById(R.id.game_board);
+    if (gameFragment == null) {
+      gameFragment = TttGameFragment.newInstance(mySide);
+      getSupportFragmentManager().beginTransaction()
+          .replace(R.id.game_board, gameFragment)
+          .commit();
+    }
   }
 
   private static abstract class MemeConnectedHandler implements MemeConnectListener {
