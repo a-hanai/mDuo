@@ -2,6 +2,7 @@ package im.ene.ikiro.game;
 
 import android.content.DialogInterface;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AlertDialog;
 import android.util.Log;
@@ -22,10 +23,16 @@ import com.jins_jp.meme.MemeScanListener;
 import com.jins_jp.meme.MemeStatus;
 import im.ene.ikiro.BaseActivity;
 import im.ene.ikiro.R;
+import im.ene.ikiro.debug.MemeDataFragment;
+import im.ene.ikiro.sdk.Action;
+import im.ene.ikiro.sdk.Command;
+import im.ene.ikiro.sdk.GyroData;
+import im.ene.ikiro.sdk.MemeActionFilter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by eneim on 2/5/17.
@@ -33,7 +40,8 @@ import java.util.Map;
 
 public class GameBoardActivity extends BaseActivity
     implements MemeRealtimeListener, MemeResponseListener, MemeLogDialog.Callback,
-    TttGameFragment.Callback {
+    TttGameFragment.Callback, MemeActionFilter.OnEyeActionListener,
+    MemeActionFilter.OnHeadActionListener {
 
   private static final String TAG = "Duo:Game";
 
@@ -148,8 +156,35 @@ public class GameBoardActivity extends BaseActivity
     Log.i(TAG, "startScan: " + status);
   }
 
-  @Override public void memeRealtimeCallback(MemeRealtimeData memeRealtimeData) {
+  GyroData calibGyroData;
+  MemeActionFilter actionFilter;
+  private final MemeDataFragment.GyroCalibrator calibrator = new MemeDataFragment.GyroCalibrator();
 
+  @Override public void memeRealtimeCallback(MemeRealtimeData data) {
+    // First 10 seconds will be used to calibrate the Gyro position.
+    if (calibrator.getStartTime() == null) {
+      calibrator.setStartTime(SystemClock.elapsedRealtime());
+    }
+
+    if (calibrator.getStartTime() + 10 * 1000 > SystemClock.elapsedRealtime()) {
+      synchronized (calibrator) {
+        calibrator.add(new GyroData(data.getPitch(), data.getRoll(), data.getYaw()));
+      }
+
+      return;
+    }
+
+    if (calibGyroData == null) {
+      calibGyroData = calibrator.getCalibrated();
+    }
+
+    if (actionFilter == null) {
+      actionFilter = new MemeActionFilter(calibGyroData);
+      actionFilter.addOnEyeActionListener(this);
+      actionFilter.addOnHeadActionListener(this);
+    }
+
+    actionFilter.onNewData(data);
   }
 
   @Override public void memeResponseCallback(MemeResponse memeResponse) {
@@ -229,6 +264,7 @@ public class GameBoardActivity extends BaseActivity
 
     MemeConnectedHandler connectedHandler = new MemeConnectedHandler(memeId) {
       @Override void onConnectToMeme(String id, boolean b) {
+        memeLib.startDataReport(GameBoardActivity.this);
         myUserId = id;
         // New game with this ID;
         if (latestGameSnapShot == null) {
@@ -278,15 +314,7 @@ public class GameBoardActivity extends BaseActivity
     String key = "tic_tac_toe";
     if (latestGameSnapShot != null) {
       //noinspection unchecked
-      // ArrayList state = (ArrayList) latestGameSnapShot.child(key).getValue();
       boardState.set(changedPosition, myUserId);
-      //if (state == null) {
-      //  state = new ArrayList<>();
-      //  for (int i = 0; i < gameState.length; i++) {
-      //    //noinspection unchecked
-      //    state.add(cellBlank);
-      //  }
-      //}
 
       //noinspection unchecked
       //state.set(changedPosition, myUserId);
@@ -312,6 +340,59 @@ public class GameBoardActivity extends BaseActivity
       getSupportFragmentManager().beginTransaction()
           .replace(R.id.game_board, gameFragment)
           .commit();
+    }
+  }
+
+  @Override public void onEyeAction(Command action) {
+    if (action.getAction() != Action.IDLE) {
+      Log.d(TAG, "onEyeAction() called with: action = [" + action + "]");
+    }
+  }
+
+  @Override public void onHeadAction(Command action) {
+    if (action.getAction() != Action.IDLE) {
+      Log.d(TAG, "onHeadAction() called with: action = [" + action + "]");
+      final AtomicInteger cursor = new AtomicInteger();
+      cursor.set(gameFragment.getCursorPosition());
+      switch (action.getAction()) {
+        case ROLL_LEFT:
+          cursor.decrementAndGet();
+          correctCursor(cursor);
+
+          runOnUiThread(new Runnable() {
+            @Override public void run() {
+              gameFragment.moveCursor(cursor.get());
+            }
+          });
+          break;
+        case ROLL_RIGHT:
+          cursor.incrementAndGet();
+          correctCursor(cursor);
+
+          runOnUiThread(new Runnable() {
+            @Override public void run() {
+              gameFragment.moveCursor(cursor.get());
+            }
+          });
+          break;
+        case PITCH_FORWARD:
+          runOnUiThread(new Runnable() {
+            @Override public void run() {
+              gameFragment.check(cursor.get());
+            }
+          });
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  private void correctCursor(final AtomicInteger cursor) {
+    if (cursor.get() < 0) {
+      cursor.addAndGet(9);
+    } else if (cursor.get() >= 9) {
+      cursor.addAndGet(-9);
     }
   }
 

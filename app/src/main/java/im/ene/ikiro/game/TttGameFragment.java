@@ -78,6 +78,8 @@ public class TttGameFragment extends Fragment {
 
     recyclerView.setLayoutManager(layoutManager);
     recyclerView.setAdapter(adapter);
+
+    adapter.setCursorPosition(4);
   }
 
   @Override public void onDestroyView() {
@@ -96,8 +98,20 @@ public class TttGameFragment extends Fragment {
     }
   }
 
+  public void check(int position) {
+    adapter.check(position, adapter.side);
+  }
+
+  public int getCursorPosition() {
+    return adapter.getCursorPosition();
+  }
+
   public void moveCursor(int position) {
     adapter.setCursorPosition(position);
+  }
+
+  public void moveCursorClockWise() {
+    adapter.setCursorPosition(adapter.getItemCount());
   }
 
   public void updateStates(List<Boolean> gameState) {
@@ -158,6 +172,10 @@ public class TttGameFragment extends Fragment {
         notifyItemChanged(pos);
         notifyItemChanged(oldCurPos);
       }
+    }
+
+    int getCursorPosition() {
+      return cursorPosition;
     }
 
     void check(int pos, Boolean willCheck) {

@@ -170,7 +170,7 @@ public class MemeDataFragment extends Fragment
     }
   }
 
-  private static class GyroCalibrator extends ArrayList<GyroData> {
+  public static class GyroCalibrator extends ArrayList<GyroData> {
 
     private Long startTime;
 
@@ -178,7 +178,7 @@ public class MemeDataFragment extends Fragment
     float avrRoll = 0;
     float avrYaw = 0;
 
-    GyroCalibrator() {
+    public GyroCalibrator() {
     }
 
     public Long getStartTime() {
@@ -196,7 +196,7 @@ public class MemeDataFragment extends Fragment
       return super.add(gyroData);
     }
 
-    GyroData getCalibrated() {
+    public GyroData getCalibrated() {
       int size = this.size();
       return new GyroData(avrPitch / (float) size, avrRoll / (float) size, avrYaw / (float) size);
     }
