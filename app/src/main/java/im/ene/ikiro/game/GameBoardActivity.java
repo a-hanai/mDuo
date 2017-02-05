@@ -173,7 +173,8 @@ public class GameBoardActivity extends BaseActivity
 
           List<Boolean> booleanList = new ArrayList<>();
           for (int i = 0; i < state.size(); i++) {
-            booleanList.add(state.get(i).equals("blank") ? null : mySide);
+            booleanList.add(state.get(i).equals(cellBlank) ? null
+                : myUserId.equals(boardState.get(i)) ? mySide : !mySide);
           }
 
           gameFragment.updateStates(booleanList);
@@ -249,7 +250,7 @@ public class GameBoardActivity extends BaseActivity
             users = (ArrayList<String>) latestGameSnapShot.child("users").getValue();
           }
 
-          mySide = Boolean.FALSE;
+          mySide = users.size() == 0 ? Boolean.TRUE : Boolean.FALSE;
           if (!users.contains(myUserId)) {
             users.add(myUserId);
           }
@@ -271,7 +272,7 @@ public class GameBoardActivity extends BaseActivity
     memeLib.connect(memeId);
   }
 
-  private String cellBlank = "blank";
+  String cellBlank = "blank";
 
   @Override public void onGameStateChanged(Boolean[] gameState, int changedPosition) {
     String key = "tic_tac_toe";
